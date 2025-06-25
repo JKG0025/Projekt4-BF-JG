@@ -5,8 +5,7 @@
 
 const wchar_t* GdiplusWindow::CLASS_NAME = L"GdiplusWindowClass";
 
-void GdiplusWindow::InitializeGDIPlus()
-{
+void GdiplusWindow::InitializeGDIPlus() {
 	Gdiplus::GdiplusStartupInput gdiplusStartupInput;
 	if (Gdiplus::GdiplusStartup(&gdiplusToken_, &gdiplusStartupInput, nullptr) != Gdiplus::Ok) {
 		throw std::runtime_error("Failed to initialize GDI+.");
@@ -41,14 +40,14 @@ GdiplusWindow::GdiplusWindow(HINSTANCE hInstance,
 	int width,
 	int height,
 	const std::wstring& backgroundImagePath)
-	: hInst_(hInstance)
-{
+	: hInst_(hInstance) {
 	InitializeGDIPlus();
 
 	if (!backgroundImagePath.empty()) {
 		background_ = std::make_unique<Gdiplus::Bitmap>(backgroundImagePath.c_str());
 		if (background_->GetLastStatus() != Gdiplus::Ok) {
 			background_.reset();
+			ShutdownGDIPlus();
 			throw std::runtime_error("Failed to load background image.");
 		}
 	}
@@ -95,7 +94,7 @@ int GdiplusWindow::RunMessageLoop() {
 GdiplusWindow::SpriteId GdiplusWindow::AddSprite(const std::wstring& imagePath, int x, int y) {
 	auto image = std::make_unique<Gdiplus::Bitmap>(imagePath.c_str());
 	if (image->GetLastStatus() != Gdiplus::Ok) {
-		return -1;
+		return static_cast<SpriteId>(-1);
 	}
 
 	Sprite s;
@@ -147,6 +146,35 @@ HWND GdiplusWindow::AddButton(const std::wstring& text, int x, int y, int width,
 	return btnHwnd;
 }
 
+void GdiplusWindow::AnimateSprite(SpriteId id, int toX, int toY, int durationMs) {
+	auto it = std::find_if(sprites_.begin(), sprites_.end(), [id](const Sprite& s) { return s.id == id; });
+	if (it == sprites_.end()) {
+		return;
+	}
+	SpriteAnimation anim;
+	anim.from = it->pos;
+	anim.to = { toX, toY };
+	anim.durationMs = durationMs;
+	anim.startTime = std::chrono::steady_clock::now();
+	anim.active = true;
+	spriteAnimations_[id] = anim;
+	if (animationTimerId_ == 0) {
+		StartAnimationTimer();
+	}
+}
+
+void GdiplusWindow::StopSpriteAnimation(SpriteId id) {
+	spriteAnimations_.erase(id);
+	if (spriteAnimations_.empty()) {
+		StopAnimationTimer();
+	}
+}
+
+void GdiplusWindow::StopAllSpriteAnimations() {
+	spriteAnimations_.clear();
+	StopAnimationTimer();
+}
+
 LRESULT CALLBACK GdiplusWindow::StaticWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 	GdiplusWindow* pThis = nullptr;
 
@@ -167,8 +195,7 @@ LRESULT CALLBACK GdiplusWindow::StaticWndProc(HWND hwnd, UINT msg, WPARAM wp, LP
 
 LRESULT GdiplusWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 	switch (msg) {
-	case WM_PAINT:
-	{
+	case WM_PAINT: {
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hwnd, &ps);
 		OnPaint(hdc);
@@ -181,6 +208,12 @@ LRESULT GdiplusWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;
+	case WM_TIMER:
+		if (wp == animationTimerId_) {
+			OnAnimationTimer();
+			return 0;
+		}
+		break;
 	}
 	return DefWindowProcW(hwnd, msg, wp, lp);
 }
@@ -230,5 +263,59 @@ void GdiplusWindow::OnCommand(WPARAM wParam, LPARAM lParam) {
 				break;
 			}
 		}
+	}
+}
+
+void GdiplusWindow::StartAnimationTimer() {
+	animationTimerId_ = SetTimer(hWnd_, 1, ANIMATION_TIMER_INTERVAL_MS, nullptr);
+	if (animationTimerId_ == 0) {
+		throw std::runtime_error("Failed to create animation timer.");
+	}
+}
+
+void GdiplusWindow::StopAnimationTimer() {
+	if (animationTimerId_ != 0) {
+		KillTimer(hWnd_, animationTimerId_);
+		animationTimerId_ = 0;
+	}
+}
+
+void GdiplusWindow::OnAnimationTimer() {
+	UpdateSpriteAnimations();
+	InvalidateRect(hWnd_, nullptr, FALSE);
+}
+
+void GdiplusWindow::UpdateSpriteAnimations() {
+	auto now = std::chrono::steady_clock::now();
+	for (auto it = spriteAnimations_.begin(); it != spriteAnimations_.end();) {
+		auto& anim = it->second;
+		if (!anim.active) {
+			it = spriteAnimations_.erase(it);
+			continue;
+		}
+		auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - anim.startTime).count();
+		if (elapsed >= anim.durationMs) {
+			anim.active = false;
+			for (auto& sprite : sprites_) {
+				if (sprite.id == it->first) {
+					sprite.pos = anim.to;
+					break;
+				}
+			}
+			it = spriteAnimations_.erase(it);
+			continue;
+		}
+		float progress = static_cast<float>(elapsed) / anim.durationMs;
+		Gdiplus::Point newPos(
+			static_cast<INT>(anim.from.X + (anim.to.X - anim.from.X) * progress),
+			static_cast<INT>(anim.from.Y + (anim.to.Y - anim.from.Y) * progress)
+		);
+		for (auto& sprite : sprites_) {
+			if (sprite.id == it->first) {
+				sprite.pos = newPos;
+				break;
+			}
+		}
+		++it;
 	}
 }
