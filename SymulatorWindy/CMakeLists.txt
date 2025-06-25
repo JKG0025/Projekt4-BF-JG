@@ -12,7 +12,7 @@ endif()
 project ("SymulatorWindy")
 
 # Add source to this project's executable.
-add_executable (SymulatorWindy "SymulatorWindy.cpp" "SymulatorWindy.h")
+add_executable (SymulatorWindy "SymulatorWindy.cpp" "SymulatorWindy.h" "GUI.cpp" "GUI.h" "ElevatorLogic.cpp" "ElevatorLogic.h")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET SymulatorWindy PROPERTY CXX_STANDARD 20)
