@@ -1,7 +1,53 @@
 #include "GUI.h"
+#include <stdexcept>
+#include <objidl.h> // For Gdiplus
+#pragma comment (lib,"Gdiplus.lib")
+
+// Define the static class name
+const wchar_t* GdiplusWindow::CLASS_NAME = L"GdiplusWindowClass";
 
 // -----------------------------------------------------------------------------
-// Rejestracja klasy okna wewn¹trz konstruktora
+// GDI+ Initialization (called from constructor)
+// -----------------------------------------------------------------------------
+void GdiplusWindow::InitializeGDIPlus() {
+	Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+	if (Gdiplus::GdiplusStartup(&gdiplusToken_, &gdiplusStartupInput, nullptr) != Gdiplus::Ok) {
+		throw std::runtime_error("Failed to initialize GDI+.");
+	}
+}
+
+// -----------------------------------------------------------------------------
+// GDI+ Shutdown (called from destructor)
+// -----------------------------------------------------------------------------
+void GdiplusWindow::ShutdownGDIPlus() {
+	if (gdiplusToken_ != 0) {
+		Gdiplus::GdiplusShutdown(gdiplusToken_);
+	}
+}
+
+// -----------------------------------------------------------------------------
+// Registers the window class. Done only once.
+// -----------------------------------------------------------------------------
+void GdiplusWindow::RegisterWindowClass(HINSTANCE hInstance, const wchar_t* className) {
+	// static ensures this runs only once per application lifetime.
+	static bool isRegistered = false;
+	if (isRegistered) return;
+
+	WNDCLASSW wc = {};
+	wc.lpfnWndProc = StaticWndProc;
+	wc.hInstance = hInstance;
+	wc.lpszClassName = className;
+	wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+	wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1); // Default background
+
+	if (!RegisterClassW(&wc)) {
+		throw std::runtime_error("Failed to register window class.");
+	}
+	isRegistered = true;
+}
+
+// -----------------------------------------------------------------------------
+// Constructor
 // -----------------------------------------------------------------------------
 GdiplusWindow::GdiplusWindow(HINSTANCE hInstance,
 	const std::wstring& windowTitle,
@@ -10,37 +56,46 @@ GdiplusWindow::GdiplusWindow(HINSTANCE hInstance,
 	const std::wstring& backgroundImagePath)
 	: hInst_(hInstance)
 {
-	// 1) Start GDI+
-	GdiplusStartupInput gdiplusStartupInput;
-	GdiplusStartup(&gdiplusToken_, &gdiplusStartupInput, nullptr);
+	InitializeGDIPlus();
 
-	// 2) Zarejestruj klasê okna
-	WNDCLASS wc = {};
-	wc.lpfnWndProc = StaticWndProc;
-	wc.hInstance = hInstance;
-	wc.lpszClassName = TEXT("GdiplusWindowClass");
-	wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
-	wc.hbrBackground = nullptr;  // t³o malujemy sami
-	RegisterClass(&wc);
+	// Load background image if a path is provided
+	if (!backgroundImagePath.empty()) {
+		background_ = std::make_unique<Gdiplus::Bitmap>(backgroundImagePath.c_str());
+		if (background_->GetLastStatus() != Gdiplus::Ok) {
+			// Handle error: e.g., throw exception or load a default
+			background_.reset(); // or throw std::runtime_error("Failed to load background image.");
+		}
+	}
 
-	// 3) Stwórz okno
-	hWnd_ = CreateWindowEx(
-		0,
-		wc.lpszClassName,
-		(LPCSTR)windowTitle.c_str(),
-		WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX,  // niezmienna wielkoœæ
-		CW_USEDEFAULT, CW_USEDEFAULT,
-		width, height,
-		nullptr, nullptr, hInstance, this
+	RegisterWindowClass(hInstance, CLASS_NAME);
+
+	// Create the window
+	hWnd_ = CreateWindowExW(
+		0,                                  // Optional window styles.
+		CLASS_NAME,                         // Window class
+		windowTitle.c_str(),                // Window text
+		WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX,  // Window style (non-resizable)
+		CW_USEDEFAULT, CW_USEDEFAULT,       // Position
+		width, height,                      // Size
+		nullptr,                            // Parent window
+		nullptr,                            // Menu
+		hInstance,                          // Instance handle
+		this                                // Additional application data
 	);
 
-	// 4) Za³aduj t³o
-	background_ = std::make_unique<Bitmap>(backgroundImagePath.c_str());
+	if (!hWnd_) {
+		ShutdownGDIPlus(); // Clean up GDI+ before throwing
+		throw std::runtime_error("Failed to create window.");
+	}
 }
 
 // -----------------------------------------------------------------------------
+// Destructor
+// -----------------------------------------------------------------------------
 GdiplusWindow::~GdiplusWindow() {
-	GdiplusShutdown(gdiplusToken_);
+	ShutdownGDIPlus();
+	// Note: The window is destroyed automatically by the OS. 
+	// DestroyWindow(hWnd_) could be called here if explicit destruction is needed.
 }
 
 // -----------------------------------------------------------------------------
@@ -51,8 +106,8 @@ void GdiplusWindow::Show(int nCmdShow) {
 
 // -----------------------------------------------------------------------------
 int GdiplusWindow::RunMessageLoop() {
-	MSG msg;
-	while (GetMessage(&msg, nullptr, 0, 0)) {
+	MSG msg = {};
+	while (GetMessage(&msg, nullptr, 0, 0) > 0) {
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
@@ -60,71 +115,100 @@ int GdiplusWindow::RunMessageLoop() {
 }
 
 // -----------------------------------------------------------------------------
-size_t GdiplusWindow::AddSprite(const std::wstring& imagePath, int x, int y) {
+GdiplusWindow::SpriteId GdiplusWindow::AddSprite(const std::wstring& imagePath, int x, int y) {
+	auto image = std::make_unique<Gdiplus::Bitmap>(imagePath.c_str());
+	if (image->GetLastStatus() != Gdiplus::Ok) {
+		// Return an invalid ID or throw an exception on failure
+		return -1;
+	}
+
 	Sprite s;
-	s.image = std::make_unique<Bitmap>(imagePath.c_str());
+	s.id = nextSpriteId_++;
 	s.pos = { x, y };
-	s.size = { (long)s.image->GetWidth(), (long)s.image->GetHeight() };
+	s.size = { static_cast<INT>(image->GetWidth()), static_cast<INT>(image->GetHeight()) };
+	s.image = std::move(image);
+
 	sprites_.push_back(std::move(s));
-	InvalidateRect(hWnd_, nullptr, FALSE);
-	return sprites_.size() - 1;
+
+	InvalidateRect(hWnd_, nullptr, FALSE); // Request a redraw
+	return s.id;
 }
 
 // -----------------------------------------------------------------------------
-void GdiplusWindow::MoveSprite(size_t id, int newX, int newY) {
-	if (id < sprites_.size()) {
-		sprites_[id].pos = { newX, newY };
-		InvalidateRect(hWnd_, nullptr, FALSE);
+void GdiplusWindow::MoveSprite(SpriteId id, int newX, int newY) {
+	for (auto& sprite : sprites_) {
+		if (sprite.id == id) {
+			sprite.pos = { newX, newY };
+			InvalidateRect(hWnd_, nullptr, FALSE); // Request a redraw
+			return;
+		}
 	}
 }
 
 // -----------------------------------------------------------------------------
-void GdiplusWindow::DrawLine(int x1, int y1, int x2, int y2, int thickness) {
-	// zapisujemy, a rysujemy przy najbli¿szym WM_PAINT
-	HPEN pen = CreatePen(PS_SOLID, thickness, RGB(255, 0, 0));
-	SelectObject(GetDC(hWnd_), pen);
-	MoveToEx(GetDC(hWnd_), x1, y1, nullptr);
-	LineTo(GetDC(hWnd_), x2, y2);
-	DeleteObject(pen);
+// FIXED: Stores a line to be drawn during the next WM_PAINT event.
+// -----------------------------------------------------------------------------
+void GdiplusWindow::AddLine(int x1, int y1, int x2, int y2, Gdiplus::Color color, float thickness) {
+	lines_.push_back({ {x1, y1}, {x2, y2}, color, thickness });
+	InvalidateRect(hWnd_, nullptr, FALSE); // Request a redraw
 }
 
 // -----------------------------------------------------------------------------
-void GdiplusWindow::DrawText(const std::wstring& text, int x, int y, const std::wstring& fontFamily, int fontSize) {
-	HDC hdc = GetDC(hWnd_);
-	::TextOutW(hdc, x, y, text.c_str(), (int)text.size());
-	ReleaseDC(hWnd_, hdc);
+// FIXED: Stores text to be drawn during the next WM_PAINT event.
+// -----------------------------------------------------------------------------
+void GdiplusWindow::AddText(const std::wstring& text, int x, int y, const std::wstring& fontFamily, float fontSize, Gdiplus::Color color) {
+	texts_.push_back({ text, {x, y}, fontFamily, fontSize, color });
+	InvalidateRect(hWnd_, nullptr, FALSE); // Request a redraw
 }
 
+// -----------------------------------------------------------------------------
+// FIXED: Correctly handles wide strings for the button text.
 // -----------------------------------------------------------------------------
 HWND GdiplusWindow::AddButton(const std::wstring& text, int x, int y, int width, int height, ButtonCallback cb) {
-	HWND btn = CreateWindowEx(
-		0, TEXT("BUTTON"), (LPCSTR)text.c_str(),
-		WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+	HWND btnHwnd = CreateWindowW(
+		L"BUTTON",                          // Predefined class; Unicode
+		text.c_str(),                       // Button text
+		WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
 		x, y, width, height,
-		hWnd_, nullptr, hInst_, nullptr
-	);
-	buttons_.push_back({ btn, cb });
-	return btn;
+		hWnd_,                              // Parent window
+		nullptr,                            // No menu.
+		hInst_,
+		nullptr);
+
+	if (btnHwnd) {
+		buttons_.push_back({ btnHwnd, std::move(cb) });
+	}
+	return btnHwnd;
 }
 
 // -----------------------------------------------------------------------------
+// Static window procedure to forward messages to the correct class instance.
+// -----------------------------------------------------------------------------
 LRESULT CALLBACK GdiplusWindow::StaticWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+	GdiplusWindow* pThis = nullptr;
+
 	if (msg == WM_NCCREATE) {
-		// Przy pierwszym CREATE wska¿ instancjê klasy jako user data
-		CREATESTRUCT* cs = reinterpret_cast<CREATESTRUCT*>(lp);
-		SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)cs->lpCreateParams);
+		CREATESTRUCT* pCS = reinterpret_cast<CREATESTRUCT*>(lp);
+		pThis = reinterpret_cast<GdiplusWindow*>(pCS->lpCreateParams);
+		SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)pThis);
 	}
-	auto* that = reinterpret_cast<GdiplusWindow*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
-	if (that)
-		return that->WndProc(hwnd, msg, wp, lp);
-	else
-		return DefWindowProc(hwnd, msg, wp, lp);
+	else {
+		pThis = reinterpret_cast<GdiplusWindow*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+	}
+
+	if (pThis) {
+		return pThis->WndProc(hwnd, msg, wp, lp);
+	}
+	return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
+// -----------------------------------------------------------------------------
+// Member window procedure to handle messages for this window instance.
 // -----------------------------------------------------------------------------
 LRESULT GdiplusWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 	switch (msg) {
-	case WM_PAINT: {
+	case WM_PAINT:
+	{
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hwnd, &ps);
 		OnPaint(hdc);
@@ -132,37 +216,78 @@ LRESULT GdiplusWindow::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 		return 0;
 	}
 	case WM_COMMAND:
-		OnCommand(wp);
+		OnCommand(wp, lp);
 		return 0;
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;
 	}
-	return DefWindowProc(hwnd, msg, wp, lp);
+	return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
+// -----------------------------------------------------------------------------
+// FIXED: Implements double-buffering for flicker-free rendering.
+// All drawing now happens here.
 // -----------------------------------------------------------------------------
 void GdiplusWindow::OnPaint(HDC hdc) {
-	Graphics g(hdc);
-	// 1) t³o
-	g.DrawImage(background_.get(), 0, 0,
-		background_->GetWidth(), background_->GetHeight());
-	// 2) wszystkie sprite’y
-	for (auto& s : sprites_) {
-		g.DrawImage(s.image.get(), s.pos.x, s.pos.y,
-			s.size.cx, s.size.cy);
+	Gdiplus::Graphics screenGraphics(hdc);
+
+	// Get client area dimensions
+	RECT rc;
+	GetClientRect(hWnd_, &rc);
+	int width = rc.right - rc.left;
+	int height = rc.bottom - rc.top;
+
+	// Create a back buffer for double-buffering
+	Gdiplus::Bitmap backBuffer(width, height, &screenGraphics);
+	Gdiplus::Graphics bufferGraphics(&backBuffer);
+
+	// ---- Start Drawing to the Back Buffer ----
+	// Clear the buffer with a default color (or leave it transparent)
+	bufferGraphics.Clear(Gdiplus::Color::White);
+
+	// 1) Draw the background image
+	if (background_) {
+		bufferGraphics.DrawImage(background_.get(), 0, 0, width, height);
 	}
-	// (Mo¿esz tu te¿ wypisaæ pamiêtne rysowania linii/tekstu
-	//  trzymane w wektorach, jeœli chcesz bardziej trwa³ego zapisu)
+
+	// 2) Draw all sprites
+	for (const auto& s : sprites_) {
+		bufferGraphics.DrawImage(s.image.get(), s.pos.X, s.pos.Y, s.size.Width, s.size.Height);
+	}
+
+	// 3) Draw all persistent lines
+	for (const auto& line : lines_) {
+		Gdiplus::Pen pen(line.color, line.thickness);
+		bufferGraphics.DrawLine(&pen, line.start, line.end);
+	}
+
+	// 4) Draw all persistent text
+	for (const auto& text : texts_) {
+		Gdiplus::FontFamily fontFamily(text.fontFamily.c_str());
+		Gdiplus::Font font(&fontFamily, text.fontSize, Gdiplus::FontStyleRegular, Gdiplus::UnitPixel);
+		Gdiplus::SolidBrush brush(text.color);
+		bufferGraphics.DrawString(text.text.c_str(), -1, &font, Gdiplus::PointF((Gdiplus::REAL)text.pos.X, (Gdiplus::REAL)text.pos.Y), &brush);
+	}
+
+	// ---- End Drawing to the Back Buffer ----
+
+	// Copy the back buffer to the screen in one operation
+	screenGraphics.DrawImage(&backBuffer, 0, 0);
 }
 
 // -----------------------------------------------------------------------------
-void GdiplusWindow::OnCommand(WPARAM wParam) {
-	HWND src = HWND(LOWORD(wParam));
-	for (auto& b : buttons_) {
-		if (b.hwnd == src && b.cb) {
-			b.cb();
-			break;
+// FIXED: More robustly handles button click notifications.
+// -----------------------------------------------------------------------------
+void GdiplusWindow::OnCommand(WPARAM wParam, LPARAM lParam) {
+	// We only care about button clicks
+	if (HIWORD(wParam) == BN_CLICKED) {
+		HWND hButton = (HWND)lParam; // Handle of the button is in lParam
+		for (const auto& b : buttons_) {
+			if (b.hwnd == hButton && b.cb) {
+				b.cb(); // Execute the callback
+				break;
+			}
 		}
 	}
 }

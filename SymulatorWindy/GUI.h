@@ -4,67 +4,102 @@
 #include <gdiplus.h>
 #include <string>
 #include <vector>
-#include <functional>
 #include <memory>
+#include <functional>
 
-#pragma comment(lib, "gdiplus.lib")
-using namespace Gdiplus;
-
-// Strukturka reprezentuj¹ca "sprite" – obrazek z pozycj¹
-struct Sprite {
-    std::unique_ptr<Bitmap> image;
-    POINT pos;
-    SIZE size;
-};
+// Forward declaration to avoid including gdiplus.h in user code if not needed
+namespace Gdiplus
+{
+	class Bitmap;
+	class Graphics;
+}
 
 class GdiplusWindow {
 public:
-    using ButtonCallback = std::function<void()>;
+	// Type alias for a button click callback function
+	using ButtonCallback = std::function<void()>;
+	// A simple, unique ID for sprites to avoid fragile indices
+	using SpriteId = size_t;
 
-    // Konstruktor: tworzy okno i ³aduje t³o
-    GdiplusWindow(HINSTANCE hInstance,
-        const std::wstring& windowTitle,
-        int width,
-        int height,
-        const std::wstring& backgroundImagePath);
+	// Constructor & Destructor
+	GdiplusWindow(HINSTANCE hInstance,
+		const std::wstring& windowTitle,
+		int width,
+		int height,
+		const std::wstring& backgroundImagePath = L"");
+	~GdiplusWindow();
 
-    // Destruktor: czyœci zasoby GDI+
-    ~GdiplusWindow();
+	// Prevent copying and assignment
+	GdiplusWindow(const GdiplusWindow&) = delete;
+	GdiplusWindow& operator=(const GdiplusWindow&) = delete;
 
-    // Pokazuje okno
-    void Show(int nCmdShow = SW_SHOW);
+	// Public interface
+	void Show(int nCmdShow = SW_SHOW);
+	int RunMessageLoop();
 
-    // Metody do zarz¹dzania sprite’ami
-    size_t AddSprite(const std::wstring& imagePath, int x, int y);
-    void MoveSprite(size_t spriteId, int newX, int newY);
+	SpriteId AddSprite(const std::wstring& imagePath, int x, int y);
+	void MoveSprite(SpriteId id, int newX, int newY);
 
-    // Rysowanie linii i tekstu
-    void DrawLine(int x1, int y1, int x2, int y2, int thickness = 1);
-    void DrawText(const std::wstring& text, int x, int y, const std::wstring& fontFamily = L"Arial", int fontSize = 16);
+	// These functions now store shapes to be drawn during OnPaint
+	void AddLine(int x1, int y1, int x2, int y2, Gdiplus::Color color, float thickness = 1.0f);
+	void AddText(const std::wstring& text, int x, int y, const std::wstring& fontFamily, float fontSize, Gdiplus::Color color);
 
-    // Dodaje przycisk: zwraca jego HWND
-    HWND AddButton(const std::wstring& text, int x, int y, int width, int height, ButtonCallback cb);
+	HWND AddButton(const std::wstring& text, int x, int y, int width, int height, ButtonCallback cb);
 
-    // Pêtla komunikatów
-    int RunMessageLoop();
+	HWND GetWindowHandle() const { return hWnd_; }
 
 private:
-    // WindowProc statyczne i przekierowanie do metody instancji
-    static LRESULT CALLBACK StaticWndProc(HWND, UINT, WPARAM, LPARAM);
-    LRESULT WndProc(HWND, UINT, WPARAM, LPARAM);
+	// --- Internal Structures ---
+	struct Sprite {
+		SpriteId id;
+		std::unique_ptr<Gdiplus::Bitmap> image;
+		Gdiplus::Point pos;
+		Gdiplus::Size size;
+	};
 
-    // Pomocnicze funkcje
-    void OnPaint(HDC hdc);
-    void OnCommand(WPARAM wParam);
+	struct ButtonInfo {
+		HWND hwnd;
+		ButtonCallback cb;
+	};
 
-    // Dane cz³onkowskie
-    HINSTANCE            hInst_;
-    HWND                 hWnd_;
-    ULONG_PTR            gdiplusToken_;
-    std::unique_ptr<Bitmap> background_;
+	struct Line {
+		Gdiplus::Point start;
+		Gdiplus::Point end;
+		Gdiplus::Color color;
+		float thickness;
+	};
 
-    std::vector<Sprite>  sprites_;
+	struct Text {
+		std::wstring text;
+		Gdiplus::Point pos;
+		std::wstring fontFamily;
+		float fontSize;
+		Gdiplus::Color color;
+	};
 
-    struct ButtonData { HWND hwnd; ButtonCallback cb; };
-    std::vector<ButtonData> buttons_;
+	// --- Window Procedure and Message Handlers ---
+	static LRESULT CALLBACK StaticWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
+	LRESULT WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
+	void OnPaint(HDC hdc);
+	void OnCommand(WPARAM wParam, LPARAM lParam);
+
+	// --- Private Helper Methods ---
+	static void RegisterWindowClass(HINSTANCE hInstance, const wchar_t* className);
+	void InitializeGDIPlus();
+	void ShutdownGDIPlus();
+
+	// --- Member Variables ---
+	HWND hWnd_ = nullptr;
+	HINSTANCE hInst_ = nullptr;
+	ULONG_PTR gdiplusToken_ = 0;
+
+	std::unique_ptr<Gdiplus::Bitmap> background_;
+	std::vector<Sprite> sprites_;
+	std::vector<ButtonInfo> buttons_;
+	std::vector<Line> lines_;
+	std::vector<Text> texts_;
+
+	SpriteId nextSpriteId_ = 0;
+
+	static const wchar_t* CLASS_NAME;
 };

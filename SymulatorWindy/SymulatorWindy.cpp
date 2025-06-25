@@ -4,11 +4,12 @@
 #include "SymulatorWindy.h"
 #include "GUI.h"
 
-int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE /*hPrevInst*/, PWSTR /*pszCmdLine*/, int nCmdShow)
+int main()
 {
-	// tu masz już w hInst uchwyt do modułu
-	GdiplusWindow win(hInst, L"Moje Okno", 800, 600, L"tlo.jpg");
-
-	return win.RunMessageLoop();
+    HINSTANCE hInst = GetModuleHandle(nullptr);
+    // dalej jak w WinMain:
+    GdiplusWindow win(hInst, L"Moje Okno", 600, 450, L"zdjencia\\szybwindy.png");
+    win.Show();
+    return win.RunMessageLoop();
 }
 
