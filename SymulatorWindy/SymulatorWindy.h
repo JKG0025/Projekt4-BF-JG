@@ -5,4 +5,19 @@
 #include <Windows.h>
 #include <iostream>
 #include <gdiplus.h>
-// TODO: Reference additional headers your program requires here.
+#include "GUI.h"
+#include "ElevatorLogic.h"
+
+class elevatorWindow
+{
+public:
+	elevatorWindow(GdiplusWindow& window_);
+	int runMessageLoop();
+
+private:
+	GdiplusWindow* window;
+	ElevatorLogic elevatorLogic;
+	std::vector<std::vector<int>> passengersOnFloors;
+	void onButtonClick(int initialFloor, int destination, int x, int y);
+};
+

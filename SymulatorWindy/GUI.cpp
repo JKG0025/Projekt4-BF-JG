@@ -58,7 +58,7 @@ GdiplusWindow::GdiplusWindow(HINSTANCE hInstance,
 		0,
 		CLASS_NAME,
 		windowTitle.c_str(),
-		WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX,
+		(WS_OVERLAPPEDWINDOW & ~WS_SIZEBOX & ~WS_MAXIMIZEBOX), // Block maximize
 		CW_USEDEFAULT, CW_USEDEFAULT,
 		width, height,
 		nullptr,

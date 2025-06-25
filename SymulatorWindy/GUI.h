@@ -9,6 +9,7 @@
 #include <chrono>
 #include <unordered_map>
 
+
 class GdiplusWindow {
 public:
 	using ButtonCallback = std::function<void()>;
