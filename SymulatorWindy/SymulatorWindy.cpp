@@ -27,8 +27,34 @@ elevatorWindow::elevatorWindow(GdiplusWindow& window_)
            }
        );
    }
+
+   window = &window_;
+   for (int i = 0; i < 5; i++) //help nie wiem jak "2" wykluczyc :/
+   {
+	   window->AddButton(
+		   std::to_wstring(i), 0, 338 - i * 25, 25, 25,
+		   [this, i]()
+		   {
+			   onButtonClick(2, i, 253 - 23 * elevatorLogic.passengerCount(2), 292);
+		   }
+	   );
+   }
+
+   window = &window_;
+   for (int i = 1; i < 5; i++)
+   {
+	   window->AddButton(
+		   std::to_wstring(i-1), 0, 179- i * 25, 25, 25,
+		   [this, i]()
+		   {
+			   onButtonClick(4, i - 1, 253 - 23 * elevatorLogic.passengerCount(4), 108);
+		   }
+	   );
+   }
    window->Show(SW_SHOW);
 }
+
+
 
 int elevatorWindow::runMessageLoop()
 {
