@@ -135,10 +135,6 @@ void ElevatorLogic::repositionFloorQueue(const std::vector<passenger*>& queue)
 			FLOOR_EXITS[currentFloor].Y,
 			ANIMATION_SPEED_PX_PER_SEC, false);
 	}
-	if (!queue.empty())
-	{
-		window->WaitForSpriteAnimation(queue.back()->passengerId);
-	}
 }
 
 bool ElevatorLogic::updateDirection(time_t timeSinceStop, bool wasEmpty)
