@@ -5,7 +5,6 @@
 #include <Windows.h>
 #include <iostream>
 #include <gdiplus.h>
-#include "GUI.h"
 #include "ElevatorLogic.h"
 
 class elevatorWindow
@@ -16,8 +15,7 @@ public:
 
 private:
 	GdiplusWindow* window;
-	ElevatorLogic elevatorLogic;
-	std::vector<std::vector<int>> passengersOnFloors;
+	ElevatorLogic* elevatorLogic;
 	void onButtonClick(int initialFloor, int destination, int x, int y);
 };
 
