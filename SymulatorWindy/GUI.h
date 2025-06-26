@@ -16,14 +16,14 @@
 
 constexpr std::array<COORD, 5> FLOOR_EXITS =
 {
-    COORD{0, 472},    // GROUND_FLOOR_EXIT
-    COORD{767, 372},  // FIRST_FLOOR_EXIT
-    COORD{0, 292},    // SECOND_FLOOR_EXIT
-    COORD{767, 148},  // THIRD_FLOOR_EXIT
-    COORD{0, 108}     // FOURTH_FLOOR_EXIT
+    COORD{0, 482},    // GROUND_FLOOR_EXIT
+    COORD{767, 382},  // FIRST_FLOOR_EXIT
+    COORD{0, 302},    // SECOND_FLOOR_EXIT
+    COORD{767, 158},  // THIRD_FLOOR_EXIT
+    COORD{0, 118}     // FOURTH_FLOOR_EXIT
 };
-constexpr int ELEVATOR_START_X = 296;
-constexpr int ELEVATOR_Y_OFFSET = 74; // Offset for the elevator sprite Y position
+constexpr int ELEVATOR_START_X = 298;
+constexpr int ELEVATOR_Y_OFFSET = 64; // Offset for the elevator sprite Y position
 
 
 class GdiplusWindow {
@@ -44,7 +44,7 @@ public:
 	int getSpriteX(SpriteId id) const;
 	int getSpriteY(SpriteId id) const;
 	void RemoveSprite(SpriteId id);
-	//void MoveSprite(SpriteId id, int newX, int newY);
+	void MoveSprite(SpriteId id, int newX, int newY);
 	void AnimateSprite(SpriteId id, int toX, int toY, float speedPxPerSec, bool deleteAfter);
 	void WaitForSpriteAnimation(SpriteId id);
 	void WaitForDuration(int durationMs);
