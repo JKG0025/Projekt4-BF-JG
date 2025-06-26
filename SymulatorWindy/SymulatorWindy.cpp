@@ -27,7 +27,7 @@ elevatorWindow::elevatorWindow(GdiplusWindow& window_)
                 std::to_wstring(i), 0, 518 - i * 25, 25, 25,
                 [this, i]()
                 {
-                    onButtonClick(0, i, 253 - 23 * elevatorLogic->passengerCount(0), 472);
+                    onButtonClick(0, i, 253 - 23 * elevatorLogic->passengerCount(0), FLOOR_EXITS[0].Y);
                 }
             );
         }
@@ -39,7 +39,7 @@ elevatorWindow::elevatorWindow(GdiplusWindow& window_)
                 std::to_wstring(i), 760, 418 - i * 25, 25, 25,
                 [this, i]()
                 {
-                    onButtonClick(1, i, 500 + 23 * elevatorLogic->passengerCount(1), 372);
+                    onButtonClick(1, i, 500 + 23 * elevatorLogic->passengerCount(1), FLOOR_EXITS[1].Y);
                 }
             );
         }
@@ -51,7 +51,7 @@ elevatorWindow::elevatorWindow(GdiplusWindow& window_)
                 std::to_wstring(i), 0, 338 - i * 25, 25, 25,
                 [this, i]()
                 {
-                    onButtonClick(2, i, 253 - 23 * elevatorLogic->passengerCount(2), 292);
+                    onButtonClick(2, i, 253 - 23 * elevatorLogic->passengerCount(2), FLOOR_EXITS[2].Y);
                 }
             );
         }
@@ -63,7 +63,7 @@ elevatorWindow::elevatorWindow(GdiplusWindow& window_)
                 std::to_wstring(i), 760, 194 - i * 25, 25, 25,
                 [this, i]()
                 {
-                    onButtonClick(3, i, 500 + 23 * elevatorLogic->passengerCount(3), 148);
+                    onButtonClick(3, i, 500 + 23 * elevatorLogic->passengerCount(3), FLOOR_EXITS[3].Y);
                 }
             );
         }
@@ -75,7 +75,7 @@ elevatorWindow::elevatorWindow(GdiplusWindow& window_)
                 std::to_wstring(i), 0, 154 - i * 25, 25, 25,
                 [this, i]()
                 {
-                    onButtonClick(4, i, 253 - 23 * elevatorLogic->passengerCount(4), 108);
+                    onButtonClick(4, i, 253 - 23 * elevatorLogic->passengerCount(4), FLOOR_EXITS[4].Y);
                 }
             );
         }
@@ -89,14 +89,11 @@ int elevatorWindow::runMessageLoop()
     time_t emptyStartTime = 0;
     bool wasEmpty = true;
 
-    constexpr int frameDelayMs = 16; // ~60 FPS
-
     MSG msg = {};
     HWND hwnd = window->GetWindowHandle();
 
     while (true)
     {
-        // Process all pending window messages (non-blocking)
         while (PeekMessage(&msg, hwnd, 0, 0, PM_REMOVE))
         {
             if (msg.message == WM_QUIT)
@@ -129,5 +126,5 @@ int elevatorWindow::runMessageLoop()
 
 void elevatorWindow::onButtonClick(int initialFloor, int destination, int x, int y)
 {
-    elevatorLogic->addPassenger(initialFloor, destination, window->AddSprite(L".\\zdjencia\\" + std::to_wstring(destination) + L"ludzikbasic.png", x, y));
+    elevatorLogic->addPassenger(initialFloor, destination, window->AddSprite(L".\\zdjencia\\" + std::to_wstring(destination) + L"ludziknonbasic.png", x, y));
 }

@@ -105,10 +105,10 @@ void GdiplusWindow::RemoveSprite(SpriteId id) {
 	}
 }
 
-//void GdiplusWindow::MoveSprite(SpriteId id, int newX, int newY) {
-//	for (auto& s : sprites_) if (s.id == id) { s.pos = { newX, newY }; break; }
-//	InvalidateRect(hWnd_, nullptr, FALSE);
-//}
+void GdiplusWindow::MoveSprite(SpriteId id, int newX, int newY) {
+	for (auto& s : sprites_) if (s.id == id) { s.pos = { newX, newY }; break; }
+	InvalidateRect(hWnd_, nullptr, FALSE);
+}
 
 size_t GdiplusWindow::AddLine(int x1, int y1, int x2, int y2, Gdiplus::Color color, float thickness) {
 	lines_.push_back({ {x1, y1}, {x2, y2}, color, thickness });
