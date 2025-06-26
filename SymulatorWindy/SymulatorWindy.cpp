@@ -29,13 +29,42 @@ elevatorWindow::elevatorWindow(GdiplusWindow& window_)
    }
 
    window = &window_;
-   for (int i = 0; i < 5; i++) //help nie wiem jak "2" wykluczyc :/
+   for (int i = 0; i < 4; i++)
    {
+	   if (i == 1) i++;
+
+	   window->AddButton(
+		   std::to_wstring(i), 760, 417 - i * 25, 25, 25,
+		   [this, i]()
+		   {
+			   onButtonClick(1, i, 500 + 23 * elevatorLogic.passengerCount(1), 375);
+		   }
+	   );
+   }
+
+   window = &window_;
+   for (int i = 0; i < 5; i++) //help malo elegancko te przyciski wyszly
+   {
+	   if (i == 2) i++;
 	   window->AddButton(
 		   std::to_wstring(i), 0, 338 - i * 25, 25, 25,
 		   [this, i]()
 		   {
 			   onButtonClick(2, i, 253 - 23 * elevatorLogic.passengerCount(2), 292);
+		   }
+	   );
+   }
+
+   window = &window_;
+   for (int i = 0; i < 4; i++)
+   {
+	   if (i == 3) i++;
+
+	   window->AddButton(
+		   std::to_wstring(i), 760, 191 - i * 25, 25, 25,
+		   [this, i]()
+		   {
+			   onButtonClick(3, i, 500 + 23 * elevatorLogic.passengerCount(3), 140);
 		   }
 	   );
    }
