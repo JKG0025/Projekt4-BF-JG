@@ -40,7 +40,7 @@ public:
 private:
 	GdiplusWindow* window; // Pointer to the GUI window for drawing
 	elevator* elevatorData;
-	COORD textPosition = { 510, 25 }; // Position for the text displaying passenger weight
+	COORD textPosition = { 300, 25 }; // Position for the text displaying passenger weight
 	size_t textId;
 	int currentFloor = 0;
 	bool goingUp = false; // true if elevator is going up, false if going down
