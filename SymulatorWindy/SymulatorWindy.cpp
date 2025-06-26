@@ -17,32 +17,30 @@ elevatorWindow::elevatorWindow(GdiplusWindow& window_)
 {
    passengersOnFloors.resize(5); // Initialize 5 floors
    window = &window_;
-   for (int i = 0; i < 4; i++)
+   for (int i = 0; i < 5; i++)
    {
+	   if (i == 0) i++;
        window->AddButton(
-           std::to_wstring(i + 1), 0, 518 - i * 25, 25, 25,
+           std::to_wstring(i), 0, 518 - i * 25, 25, 25,
            [this, i]() 
 		   {
-               onButtonClick(0, i + 1, 253 - 23 * elevatorLogic.passengerCount(0), 473);
+               onButtonClick(0, i, 253 - 23 * elevatorLogic.passengerCount(0), 472);
            }
        );
    }
 
-   window = &window_;
-   for (int i = 0; i < 4; i++)
+   for (int i = 0; i < 5; i++)
    {
 	   if (i == 1) i++;
-
 	   window->AddButton(
-		   std::to_wstring(i), 760, 417 - i * 25, 25, 25,
+		   std::to_wstring(i), 760, 418 - i * 25, 25, 25,
 		   [this, i]()
 		   {
-			   onButtonClick(1, i, 500 + 23 * elevatorLogic.passengerCount(1), 375);
+			   onButtonClick(1, i, 500 + 23 * elevatorLogic.passengerCount(1), 372);
 		   }
 	   );
    }
 
-   window = &window_;
    for (int i = 0; i < 5; i++) //help malo elegancko te przyciski wyszly
    {
 	   if (i == 2) i++;
@@ -55,28 +53,26 @@ elevatorWindow::elevatorWindow(GdiplusWindow& window_)
 	   );
    }
 
-   window = &window_;
-   for (int i = 0; i < 4; i++)
+   for (int i = 0; i < 5; i++)
    {
 	   if (i == 3) i++;
-
 	   window->AddButton(
-		   std::to_wstring(i), 760, 191 - i * 25, 25, 25,
+		   std::to_wstring(i), 760, 194 - i * 25, 25, 25,
 		   [this, i]()
 		   {
-			   onButtonClick(3, i, 500 + 23 * elevatorLogic.passengerCount(3), 140);
+			   onButtonClick(3, i, 500 + 23 * elevatorLogic.passengerCount(3), 148);
 		   }
 	   );
    }
 
-   window = &window_;
-   for (int i = 1; i < 5; i++)
+   for (int i = 0; i < 5; i++)
    {
+	   if (i == 4) break; // No button for the 5th floor, as it is the top floor
 	   window->AddButton(
-		   std::to_wstring(i-1), 0, 179- i * 25, 25, 25,
+		   std::to_wstring(i), 0, 154 - i * 25, 25, 25,
 		   [this, i]()
 		   {
-			   onButtonClick(4, i - 1, 253 - 23 * elevatorLogic.passengerCount(4), 108);
+			   onButtonClick(4, i, 253 - 23 * elevatorLogic.passengerCount(4), 108);
 		   }
 	   );
    }
