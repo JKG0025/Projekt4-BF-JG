@@ -23,7 +23,7 @@ elevatorWindow::elevatorWindow(GdiplusWindow& window_)
            std::to_wstring(i + 1), 0, 518 - i * 25, 25, 25,
            [this, i]() 
 		   {
-               onButtonClick(0, i + 1, 50 + 23 * elevatorLogic.passengerCount(0), 473);
+               onButtonClick(0, i + 1, 253 - 23 * elevatorLogic.passengerCount(0), 473);
            }
        );
    }
